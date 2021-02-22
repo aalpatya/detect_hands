@@ -11,13 +11,13 @@ from utils import visualization_utils
 
 if tf.__version__ < '1.4.0':
     raise ImportError('Please upgrade your tensorflow installation to v1.4.* or later!')
-if cv2.__version__ <= '4.5.1':
+if cv2.__version__ < '4.5.1':
     print('Warning: This has only been tested for OpenCV 4.5.1.')
 
-
-PATH_TO_SAVED_MODEL = os.path.join(os.getcwd(), 'model_data', 'saved_model')
+MODEL_NAME = 'ssd_mobilenet_v2_fpn_320'
+PATH_TO_SAVED_MODEL = os.path.join(os.getcwd(), 'model_data', MODEL_NAME, 'saved_model')
 # List of the strings that is used to add correct label for each box.
-PATH_TO_LABELS = os.path.join(os.getcwd(), 'model_data', 'label_map.pbtxt')
+PATH_TO_LABELS = os.path.join(os.getcwd(), 'model_data', MODEL_NAME, 'label_map.pbtxt')
 NUM_CLASSES = 1
 
 if __name__ == '__main__':
@@ -39,8 +39,7 @@ if __name__ == '__main__':
     tic = time.time()
     while True:
       ret, frame = video_capture.read()
-      frame = None
-      if not frame:
+      if not ret:
           print('Error reading frame from camera. Exiting ...')
           break
           
@@ -84,5 +83,6 @@ if __name__ == '__main__':
       if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
+    print("Exiting ...")
     video_capture.release()
     cv2.destroyAllWindows()
