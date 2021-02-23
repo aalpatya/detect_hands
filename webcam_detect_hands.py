@@ -1,5 +1,6 @@
 import os
-# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
+os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'
 
 import time
 import tensorflow as tf
@@ -72,8 +73,7 @@ if __name__ == '__main__':
             category_index,
             use_normalized_coordinates=True,
             max_boxes_to_draw=200,
-            min_score_thresh=.30,
-            agnostic_mode=False)
+            min_score_thresh=.30)
 
       toc = time.time()
       fps = int(1/(toc - tic))
