@@ -50,7 +50,6 @@ if __name__ == '__main__':
       # The model expects a batch of images, so add an axis with `tf.newaxis`.
       input_tensor = input_tensor[tf.newaxis, ...]
 
-      # input_tensor = np.expand_dims(image_np, 0)
       detections = detect_fn(input_tensor)
 
       # All outputs are batches tensors.
