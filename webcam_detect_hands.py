@@ -8,77 +8,79 @@ import cv2
 import numpy as np
 
 from utils import label_map_util
-from utils import visualization_utils
 
-if tf.__version__ < '1.4.0':
-    raise ImportError('Please upgrade your tensorflow installation to v1.4.* or later!')
-if cv2.__version__ < '4.5.1':
-    print('Warning: This has only been tested for OpenCV 4.5.1.')
+# Only tested for tensorflow 2.4.1, opencv 4.5.1
 
+# Model information
 MODEL_NAME = 'ssd_mobilenet_v2_fpn_320'
 PATH_TO_SAVED_MODEL = os.path.join(os.getcwd(), 'model_data', MODEL_NAME, 'saved_model')
-# List of the strings that is used to add correct label for each box.
 PATH_TO_LABELS = os.path.join(os.getcwd(), 'model_data', MODEL_NAME, 'label_map.pbtxt')
-NUM_CLASSES = 1
+
+# Load label map and obtain class names and ids
+label_map = label_map_util.load_labelmap(PATH_TO_LABELS)
+category_index = label_map_util.create_category_index(
+    label_map_util.convert_label_map_to_categories(
+        label_map, max_num_classes=1, use_display_name=True
+    )
+)
+
+def visualise_on_image(image, bboxes, labels, scores, thresh):
+    (h, w, d) = image.shape
+    for bbox, label, score in zip(bboxes, labels, scores):
+        if score > thresh:
+            xmin, ymin = int(bbox[1]*w), int(bbox[0]*h)
+            xmax, ymax = int(bbox[3]*w), int(bbox[2]*h)
+
+            cv2.rectangle(image, (xmin, ymin), (xmax, ymax), (0,255,0), 2)
+            cv2.putText(image, f"{label}: {int(score*100)} %", (xmin, ymin), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
+    return image
 
 if __name__ == '__main__':
+    
+    # Load the model
     print("Loading saved model ...")
     detect_fn = tf.saved_model.load(PATH_TO_SAVED_MODEL)
     print("Model Loaded!")
-
-    # Load label map and obtain class names and ids
-    label_map = label_map_util.load_labelmap(PATH_TO_LABELS)
-    categories = label_map_util.convert_label_map_to_categories(
-        label_map, max_num_classes=NUM_CLASSES, use_display_name=True)
-    category_index = label_map_util.create_category_index(categories)
-
+    
     # Open Video Capture (Camera)
     video_capture = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-    if not video_capture.isOpened():
-        raise SystemError('No video camera found')
-
     tic = time.time()
+
     while True:
       ret, frame = video_capture.read()
       if not ret:
           print('Error reading frame from camera. Exiting ...')
           break
-          
-      image_np = cv2.cvtColor(cv2.flip(frame, 1), cv2.COLOR_BGR2RGB)
+    
+      frame = cv2.flip(frame, 1)
+      image_np = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
       # The input needs to be a tensor, convert it using `tf.convert_to_tensor`.
-      input_tensor = tf.convert_to_tensor(image_np)
-      # The model expects a batch of images, so add an axis with `tf.newaxis`.
-      input_tensor = input_tensor[tf.newaxis, ...]
+      # The model expects a batch of images, so also add an axis with `tf.newaxis`.
+      input_tensor = tf.convert_to_tensor(image_np)[tf.newaxis, ...]
 
+      # Pass frame through detector
       detections = detect_fn(input_tensor)
+
+      # Detection parameters
+      score_thresh = 0.4
+      max_detections = 4
 
       # All outputs are batches tensors.
       # Convert to numpy arrays, and take index [0] to remove the batch dimension.
       # We're only interested in the first num_detections.
-      num_detections = int(detections.pop('num_detections'))
-      detections = {key: value[0, :num_detections].numpy()
-                    for key, value in detections.items()}
-      detections['num_detections'] = num_detections
-      # detection_classes should be ints.
-      detections['detection_classes'] = detections['detection_classes'].astype(np.int64)
+      scores = detections['detection_scores'][0, :max_detections].numpy()
+      bboxes = detections['detection_boxes'][0, :max_detections].numpy()
+      labels = detections['detection_classes'][0, :max_detections].numpy().astype(np.int64)
+      labels = [category_index[n]['name'] for n in labels]
 
-      image_np_with_detections = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
-
-      visualization_utils.visualize_boxes_and_labels_on_image_array(
-            image_np_with_detections,
-            detections['detection_boxes'],
-            detections['detection_classes'],
-            detections['detection_scores'],
-            category_index,
-            use_normalized_coordinates=True,
-            max_boxes_to_draw=200,
-            min_score_thresh=.30)
+      # Display detections
+      visualise_on_image(frame, bboxes, labels, scores, score_thresh)
 
       toc = time.time()
       fps = int(1/(toc - tic))
       tic = toc
-      cv2.putText(image_np_with_detections, f"FPS: {fps}", (50,50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,0), 1)
-      cv2.imshow("img", image_np_with_detections)
+      cv2.putText(frame, f"FPS: {fps}", (50,50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,0), 1)
+      cv2.imshow("Hand theremin", frame)
       if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 

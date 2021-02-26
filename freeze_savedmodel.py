@@ -26,5 +26,5 @@ print("Frozen model outputs: ", frozen_func.outputs)
 # Save frozen graph to disk
 tf.io.write_graph(graph_or_graph_def=frozen_func.graph,
                   logdir="./frozen_models",
-                  name="frozen_graph.pb",
-                  as_text=False)
+                  name="frozen_graph1.pb",
+                  as_text=True)

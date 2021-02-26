@@ -13,113 +13,113 @@ from utils import label_map_util
 from utils import visualization_utils
 
 ########################################################################
+# Audio properties
 FS = 4410
-# base waveform of length FS to step through with base_wave_ptr
+# Base waveform of length FS to step through with base_wave_ptr
 x = np.arange(FS)
 base_wave = np.sin(2*np.pi*x/FS)
 base_wave_ptr = 0
 
-# Initialise freq and amp to 0 (if queue is empty, the last values are used)
-f_prev = 0
-amp_prev = 0
+# Initialise freq and amp to 0
+freq_in, amp_in = 0, 0.
 
 # set freq and amp limits
-MIN_FREQ, MAX_FREQ = 300, 900
+MIN_FREQ, MAX_FREQ = 250, 1200
 MIN_AMP, MAX_AMP = 0.0, 0.4
 ########################################################################
-# SSD Model parameters
+# Model information
 MODEL_NAME = 'ssd_mobilenet_v2_fpn_320'
 PATH_TO_SAVED_MODEL = os.path.join(os.getcwd(), 'model_data', MODEL_NAME, 'saved_model')
-# List of the strings that is used to add correct label for each box.
 PATH_TO_LABELS = os.path.join(os.getcwd(), 'model_data', MODEL_NAME, 'label_map.pbtxt')
-NUM_CLASSES = 1
-
 print("Loading saved model ...")
 detect_fn = tf.saved_model.load(PATH_TO_SAVED_MODEL)
 print("Model Loaded!")
 
 # Load label map and obtain class names and ids
 label_map = label_map_util.load_labelmap(PATH_TO_LABELS)
-categories = label_map_util.convert_label_map_to_categories(
-    label_map, max_num_classes=NUM_CLASSES, use_display_name=True)
-category_index = label_map_util.create_category_index(categories)
+category_index = label_map_util.create_category_index(
+    label_map_util.convert_label_map_to_categories(
+        label_map, max_num_classes=1, use_display_name=True
+    )
+)
+
+def visualise_on_image(image, bboxes, labels, scores, thresh):
+    (h, w, d) = image.shape
+    for bbox, label, score in zip(bboxes, labels, scores):
+        if score > thresh:
+            xmin, ymin = int(bbox[1]*w), int(bbox[0]*h)
+            xmax, ymax = int(bbox[3]*w), int(bbox[2]*h)
+
+            cv2.rectangle(image, (xmin, ymin), (xmax, ymax), (0,255,0), 2)
+            cv2.putText(image, f"{label}: {int(score*100)} %", (xmin, ymin), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
+    return image
 
 # Create Queue for storing bounding box centroids
-q = queue.Queue(maxsize=1)
+q = queue.Queue(maxsize=5)
+cx, cy = 0, 0
+cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
 def audio_callback(outdata, frames, time, status):
     """ Gets freq and amp information from the queue and creates 
     samples to play from the base waveform """
-    global base_wave_ptr, base_wave, f_prev, amp_prev
+    global base_wave_ptr, base_wave, freq_in, amp_in
 
-    try:
-        # Get values from the queue
-        freq, amp = q.get_nowait()
-        f_prev  = freq
-        amp_prev = amp
-    except queue.Empty:
-        # If queue is empty, just play the last freq and amp values
-        freq = f_prev
-        amp = amp_prev
-    
     # Step through the base waveform in step size of desired freq
     for i in range(frames):
-        outdata[i] = amp * base_wave[base_wave_ptr]
-        base_wave_ptr = (base_wave_ptr + freq) % FS
+        outdata[i] = amp_in * base_wave[base_wave_ptr]
+        base_wave_ptr = (base_wave_ptr + freq_in) % FS
 
 
 with sd.OutputStream(channels=1, callback=audio_callback, samplerate=FS):
-    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     tic = time.time()    
     while True:
         ret, frame = cap.read()
-        image_np = cv2.cvtColor(cv2.flip(frame, 1), cv2.COLOR_BGR2RGB)
-
+        if not ret:
+            print('Error reading frame from camera. Exiting ...')
+            break
+        
+        frame = cv2.flip(frame, 1)
+        image_np = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         # The input needs to be a tensor, convert it using `tf.convert_to_tensor`.
-        input_tensor = tf.convert_to_tensor(image_np)
-        # The model expects a batch of images, so add an axis with `tf.newaxis`.
-        input_tensor = input_tensor[tf.newaxis, ...]
+        # The model expects a batch of images, so also add an axis with `tf.newaxis`.
+        input_tensor = tf.convert_to_tensor(image_np)[tf.newaxis, ...]
 
+        # Pass frame through detector
         detections = detect_fn(input_tensor)
+
+        # Detection parameters
+        score_thresh = 0.4
+        max_detections = 4
 
         # All outputs are batches tensors.
         # Convert to numpy arrays, and take index [0] to remove the batch dimension.
         # We're only interested in the first num_detections.
-        num_detections = int(detections.pop('num_detections'))
-        max_detections = 4
-        detections = {key: value[0, :max_detections].numpy()
-                    for key, value in detections.items()}
-        # detection_classes should be ints.
-        detections['detection_classes'] = detections['detection_classes'].astype(np.int64)
+        scores = detections['detection_scores'][0, :max_detections].numpy()
+        bboxes = detections['detection_boxes'][0, :max_detections].numpy()
+        labels = detections['detection_classes'][0, :max_detections].numpy().astype(np.int64)
+        labels = [category_index[n]['name'] for n in labels]
 
-        image_np_with_detections = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
-        boxes = detections['detection_boxes']
-        cx = (boxes[0,1]+boxes[0,3])/2
-        cy = (boxes[0,0]+boxes[0,2])/2
+        max_score_idx = np.argmax(scores)
+        if scores[max_score_idx] >= score_thresh:
+            cx = (bboxes[max_score_idx,1]+bboxes[max_score_idx,3])/2
+            cy = (bboxes[max_score_idx,0]+bboxes[max_score_idx,2])/2
+        else:
+            cy = cy * 0.6
 
-        visualization_utils.visualize_boxes_and_labels_on_image_array(
-            image_np_with_detections,
-            detections['detection_boxes'],
-            detections['detection_classes'],
-            detections['detection_scores'],
-            category_index,
-            use_normalized_coordinates=True,
-            max_boxes_to_draw=max_detections,
-            min_score_thresh=.40)
+        # Display detections
+        visualise_on_image(frame, bboxes, labels, scores, score_thresh)
 
         toc = time.time()
         fps = int(1/(toc - tic))
         tic = toc
-        cv2.putText(image_np_with_detections, f"FPS: {fps}", (50,50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,0), 1)
-        cv2.imshow("img", image_np_with_detections)
+        cv2.putText(frame, f"FPS: {fps}", (50,50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,0), 1)
+        cv2.imshow("Hands Theremin", frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break        
         # Get mouse x,y position and convert to freq and amplitude
         freq_in = int(cx * (MAX_FREQ-MIN_FREQ) + MIN_FREQ)
         amp_in = cy * (MAX_AMP-MIN_AMP)
 
-        # Put freq and amplitude in the queue
-        q.put_nowait([freq_in, amp_in])
 
 print("Exiting ...")
 cap.release()

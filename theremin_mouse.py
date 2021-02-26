@@ -2,6 +2,7 @@ import sounddevice as sd
 import numpy as np
 import queue
 import pyautogui
+import time
 
 FS = 44100
 # base waveform of length FS to step through with base_wave_ptr
@@ -12,8 +13,8 @@ base_wave_ptr = 0
 # Create a queue, in which input freq and amplitude will go
 q = queue.Queue(maxsize=1)
 # Initialise freq and amp to 0 (if queue is empty, the last values are used)
-f_prev = 0
-amp_prev = 0
+f_prev, f_prev2 = 0, 0
+amp_prev, amp_prev2 = 0, 0
 
 # Get screen size, and set freq and amp limits
 screen_w, screen_h = pyautogui.size()
@@ -23,13 +24,17 @@ MIN_AMP, MAX_AMP = 0.0, 0.4
 def audio_callback(outdata, frames, time, status):
     """ Gets freq and amp information from the queue and creates 
     samples to play from the base waveform """
-    global base_wave_ptr, base_wave, f_prev, amp_prev
+    global base_wave_ptr, base_wave, f_prev, amp_prev, f_prev2, amp_prev2
 
     try:
         # Get values from the queue
-        freq, amp = q.get_nowait()
-        f_prev  = freq
-        amp_prev = amp
+        f, a = q.get_nowait()
+        freq = int(f*0.5 + f_prev*0.3 + f_prev2*0.2)
+        amp = a*0.5 + amp_prev*0.3 + amp_prev2*0.2
+        f_prev2 = f_prev
+        amp_prev2 = amp_prev
+        f_prev  = f
+        amp_prev = a
     except queue.Empty:
         print("Empty")
         # If queue is empty, just play the last freq and amp values
