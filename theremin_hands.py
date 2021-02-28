@@ -10,7 +10,6 @@ import queue
 import sounddevice as sd 
 
 from utils import label_map_util
-from utils import visualization_utils
 
 ########################################################################
 # Audio properties
@@ -24,8 +23,9 @@ base_wave_ptr = 0
 freq_in, amp_in = 0, 0.
 
 # set freq and amp limits
-MIN_FREQ, MAX_FREQ = 250, 1200
+MIN_FREQ = 256
 MIN_AMP, MAX_AMP = 0.0, 0.4
+NUM_OCTAVES = 2.5
 ########################################################################
 # Model information
 MODEL_NAME = 'ssd_mobilenet_v2_fpn_320'
@@ -43,21 +43,39 @@ category_index = label_map_util.create_category_index(
     )
 )
 
-def visualise_on_image(image, bboxes, labels, scores, thresh):
+def visualise_on_image(image, bboxes, labels, scores, score_thresh, vert_thresh):
     (h, w, d) = image.shape
     for bbox, label, score in zip(bboxes, labels, scores):
-        if score > thresh:
+        if score > score_thresh and bbox[0] > vert_thresh:
             xmin, ymin = int(bbox[1]*w), int(bbox[0]*h)
             xmax, ymax = int(bbox[3]*w), int(bbox[2]*h)
 
             cv2.rectangle(image, (xmin, ymin), (xmax, ymax), (0,255,0), 2)
+            cv2.circle(image, ((xmin+xmax)//2, (ymin+ymax)//2), 3, (0,255,0), -1)
             cv2.putText(image, f"{label}: {int(score*100)} %", (xmin, ymin), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
     return image
 
-# Create Queue for storing bounding box centroids
-q = queue.Queue(maxsize=5)
+def overlay(image, overlay_img, ovr_loc):
+    image_stacked = np.dstack([image, np.ones(image.shape[:2], dtype="uint8") * 255])
+    overlay_size = (
+        ovr_loc[2] - ovr_loc[0],
+        ovr_loc[3] - ovr_loc[1]
+    )
+    overlay = cv2.resize(overlay_img, overlay_size, interpolation=cv2.INTER_AREA)
+    blend = np.zeros(image_stacked.shape, dtype="uint8")
+    blend[ovr_loc[1]:ovr_loc[3], :] = overlay
+    final_img = image_stacked.copy()
+    final_img = cv2.addWeighted(blend, 0.3, final_img, 1.0, 0, final_img)
+    return final_img
+
+###############################################################
 cx, cy = 0, 0
 cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+W = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))   # float `width`
+H = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))   # float `height`
+overlay_img = cv2.imread('keyboard.png', cv2.IMREAD_UNCHANGED)
+
+freq_lut = (MIN_FREQ * 2**(NUM_OCTAVES * np.arange(W)/W)).astype(np.int)
 
 def audio_callback(outdata, frames, time, status):
     """ Gets freq and amp information from the queue and creates 
@@ -89,6 +107,7 @@ with sd.OutputStream(channels=1, callback=audio_callback, samplerate=FS):
 
         # Detection parameters
         score_thresh = 0.4
+        vert_thresh = 0.5 # ignore bboxes whos ymin coord is less than this
         max_detections = 4
 
         # All outputs are batches tensors.
@@ -99,25 +118,28 @@ with sd.OutputStream(channels=1, callback=audio_callback, samplerate=FS):
         labels = detections['detection_classes'][0, :max_detections].numpy().astype(np.int64)
         labels = [category_index[n]['name'] for n in labels]
 
-        max_score_idx = np.argmax(scores)
-        if scores[max_score_idx] >= score_thresh:
-            cx = (bboxes[max_score_idx,1]+bboxes[max_score_idx,3])/2
-            cy = (bboxes[max_score_idx,0]+bboxes[max_score_idx,2])/2
-        else:
-            cy = cy * 0.6
+        bbox_found = False
+        for idx, (bbox, score) in enumerate(zip(bboxes, scores)):
+            if score >= score_thresh and bbox[0] > vert_thresh:
+                cx = (bbox[1]+bbox[3])/2
+                cy = (bbox[0]+bbox[2])/2
+                bbox_found = True
+        
+        cy = cy if bbox_found else cy * 0.75
 
         # Display detections
-        visualise_on_image(frame, bboxes, labels, scores, score_thresh)
+        visualise_on_image(frame, bboxes, labels, scores, score_thresh, vert_thresh)
 
         toc = time.time()
         fps = int(1/(toc - tic))
         tic = toc
-        cv2.putText(frame, f"FPS: {fps}", (50,50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,0), 1)
-        cv2.imshow("Hands Theremin", frame)
+        cv2.putText(frame, f"FPS: {fps}", (50,50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
+        output_img = overlay(frame, overlay_img, [0, 3*H//4, W, H])
+        cv2.imshow("Hands Theremin", output_img)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break        
         # Get mouse x,y position and convert to freq and amplitude
-        freq_in = int(cx * (MAX_FREQ-MIN_FREQ) + MIN_FREQ)
+        freq_in = freq_lut[int(min(cx * W, W))]
         amp_in = cy * (MAX_AMP-MIN_AMP)
 
 
