@@ -13,6 +13,15 @@ import zipfile
 
 import csv
 
+"""
+ORIGINAL SOURCE: https://github.com/molyswu/hand_detection/blob/temp/hand_detection/egohands_dataset_clean.py
+
+I have cleaned up slightly, allowed for python3 functionality and some other things too:
+   > using os.path.join instead of string1 + "/" + string2
+   > ignores bounding boxes in original dataset where xmin = xmax or ymin=ymax
+   > allows to choose a subset of the 40 subfolders of images.
+"""
+
 image_filetypes = ['jpg', 'jpeg', 'png']
 
 def save_csv(csv_path, csv_content):
@@ -180,7 +189,7 @@ def rename_files(source_image_dir):
                 else:
                     break
 
-def extract_folder(dataset_path, source_dir, num_to_keep):
+def extract_folder(dataset_path, source_dir, num_directories=4):
     if not os.path.exists("egohands"):
         print("Extracting files")
         zip_ref = zipfile.ZipFile(dataset_path, 'r')
@@ -221,7 +230,7 @@ if __name__=="__main__":
     images_dir = 'images'
 
     download_egohands_dataset(EGOHANDS_DATASET_URL, EGO_HANDS_FILE)
-    extracted = extract_folder(EGO_HANDS_FILE, source_dir, NUM_TO_KEEP)
+    extracted = extract_folder(EGO_HANDS_FILE, source_dir, num_directories=NUM_DIRECTORIES_TO_KEEP)
     if extracted:
         rename_files(source_dir)
         
