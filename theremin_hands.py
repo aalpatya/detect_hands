@@ -73,7 +73,7 @@ cx, cy = 0, 0
 cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 W = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))   # float `width`
 H = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))   # float `height`
-overlay_img = cv2.imread('keyboard.png', cv2.IMREAD_UNCHANGED)
+overlay_img = cv2.imread('keyboard_overlay.png', cv2.IMREAD_UNCHANGED)
 
 freq_lut = (MIN_FREQ * 2**(NUM_OCTAVES * np.arange(W)/W)).astype(np.int)
 
