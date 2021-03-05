@@ -20,9 +20,12 @@ Run on python3 with:
 
 # Live Hand Theremin
 python3 theremin_hands.py
-example: https://www.youtube.com/watch?v=3Kw0j-96lWc
 
-<iframe width="560" height="315" src="https://www.youtube.com/embed/3Kw0j-96lWc" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+See it in action by clicking this thumbnail: 
+
+[![Hand Theremin](http://img.youtube.com/vi/3Kw0j-96lWc/0.jpg)](http://www.youtube.com/watch?v=3Kw0j-96lWc "Hand Theremin")
+
+(https://www.youtube.com/watch?v=3Kw0j-96lWc)
 
 # Live Mouse Theremin
 python3 theremin_mouse.py
