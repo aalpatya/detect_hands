@@ -16,6 +16,7 @@ Run on python3 with:
 
 # run theremin with hands
 python3 theremin_hands.py
+example: https://www.youtube.com/watch?v=3Kw0j-96lWc
 
 # run theremin using mouse input
 python3 theremin_mouse.py
