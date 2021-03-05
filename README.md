@@ -5,6 +5,7 @@ It has been trained with transfer learning, on a small subset (about 300 images)
     http://vision.soic.indiana.edu/projects/egohands/
 
 The dataset has been cleaned (sometimes bounding boxes in images had x_min = x_max, and y_min = y_max).
+
 Acknowledgements:
 - https://github.com/molyswu/hand_detection/blob/temp/hand_detection/egohands_dataset_clean.py (I modified this)
 - https://github.com/datitran/raccoon_dataset/blob/master/generate_tfrecord.py (I modified this)
