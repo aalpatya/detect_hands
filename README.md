@@ -15,11 +15,13 @@ Requires tensorflow 2, (tested on tensorflow 2.4.1)
 and OpenCV 4 (tested on OpenCV 4.2.1)
 
 # Live Hand Detection only
-Run on python3 with:
-    python3 webcam_detect_hands.py
+**python3 webcam_detect_hands.py**
+    
+![out1](https://user-images.githubusercontent.com/46225891/110107527-e845e200-7da2-11eb-80a0-e9f9ec74a756.gif)
+
 
 # Live Hand Theremin
-python3 theremin_hands.py
+**python3 theremin_hands.py**
 
 See it in action by clicking this thumbnail: 
 
@@ -28,7 +30,7 @@ See it in action by clicking this thumbnail:
 (https://www.youtube.com/watch?v=3Kw0j-96lWc)
 
 # Live Mouse Theremin
-python3 theremin_mouse.py
+**python3 theremin_mouse.py**
 
 
 TODO: Put camera frame reading and processing into multi-threading
