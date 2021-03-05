@@ -25,7 +25,8 @@ and OpenCV 4 (tested on OpenCV 4.2.1)
 
 See it in action by clicking this thumbnail: 
 
-[![Hand Theremin](http://img.youtube.com/vi/3Kw0j-96lWc/0.jpg)](http://www.youtube.com/watch?v=3Kw0j-96lWc "Hand Theremin")
+[![Hand Theremin](https://user-images.githubusercontent.com/46225891/110108308-ec263400-7da3-11eb-994e-8582db128fd9.gif)](http://www.youtube.com/watch?v=3Kw0j-96lWc "Hand Theremin")
+
 
 (https://www.youtube.com/watch?v=3Kw0j-96lWc)
 
