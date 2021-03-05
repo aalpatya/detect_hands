@@ -54,6 +54,7 @@ def get_bbox_visualize(base_path, dir):
         font = cv2.FONT_HERSHEY_SIMPLEX
 
         img_id = image_path_array[pointindex]
+        head, tail = os.path.split(img_id)
         img = cv2.imread(img_id)
 
         pointindex += 1
@@ -199,7 +200,7 @@ def extract_folder(dataset_path, source_dir, num_directories=4):
         zip_ref.close()
         dirs = [os.path.join(source_dir, dir) for dir in os.listdir(source_dir)]
         random.shuffle(dirs)
-        for d in dirs[:-num_to_keep]:
+        for d in dirs[num_directories:]:
             shutil.rmtree(d)
         return True
     else:
